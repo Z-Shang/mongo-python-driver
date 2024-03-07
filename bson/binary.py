@@ -13,8 +13,10 @@
 # limitations under the License.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Tuple, Type, Union, List
 from uuid import UUID
+import numpy as np
+import numpy.typing as npt
 
 """Tools for representing BSON binary data.
 """
@@ -190,10 +192,37 @@ SENSITIVE_SUBTYPE = 8
 .. versionadded:: 4.5
 """
 
+VECTOR_SUBTYPE = 9
 
 USER_DEFINED_SUBTYPE = 128
 """BSON binary subtype for any user defined structure.
 """
+
+TYPE_SIZE_MAP = {
+    1: 3,
+    2: 5,
+    3: 6,
+    4: 7,
+    6: 8,
+    8: 9,
+    12: 10,
+    16: 11,
+    24: 12,
+    32: 13,
+    48: 14,
+    64: 15,
+}
+
+TYPE_KIND_MAP = {
+    "b": 4,
+    "i": 0,
+    "u": 1,
+    "f": 2,
+    "c": 3,
+}
+
+REV_TYPE_SIZE_MAP = dict(map(lambda x: (x[1], x[0]), TYPE_SIZE_MAP.items()))
+REV_TYPE_KIND_MAP = dict(map(lambda x: (x[1], x[0]), TYPE_KIND_MAP.items()))
 
 
 class Binary(bytes):
@@ -240,7 +269,9 @@ class Binary(bytes):
 
     @classmethod
     def from_uuid(
-        cls: Type[Binary], uuid: UUID, uuid_representation: int = UuidRepresentation.STANDARD
+        cls: Type[Binary],
+        uuid: UUID,
+        uuid_representation: int = UuidRepresentation.STANDARD,
     ) -> Binary:
         """Create a BSON Binary object from a Python UUID.
 
@@ -335,6 +366,63 @@ class Binary(bytes):
 
         raise ValueError(
             f"cannot decode subtype {self.subtype} to {UUID_REPRESENTATION_NAMES[uuid_representation]}"
+        )
+
+    @classmethod
+    def from_vector(cls: Type[Binary], vector: npt.NDArray) -> Binary:
+        buf: List = []
+        dtype = vector.dtype
+        type_size = TYPE_SIZE_MAP.get(dtype.itemsize, None)
+        if type_size is None:
+            raise ValueError(
+                f"cannot convert dtype of size: {dtype.itemsize} to BSON binary"
+            )
+        type_kind = TYPE_KIND_MAP.get(dtype.kind, None)
+        if type_kind is None:
+            raise ValueError(f"cannot convert dtype: {dtype.str} to BSON binary")
+        if (type_kind, type_size) not in {
+            # ints
+            (0, 2),
+            (0, 3),
+            (0, 5),
+            (0, 7),
+            (0, 9),
+            # uints
+            (1, 2),
+            (1, 3),
+            (1, 5),
+            (1, 7),
+            (1, 9),
+            # floats
+            (2, 5),
+            (2, 7),
+            (2, 9),
+            # complex
+            (3, 7),
+            (3, 9),
+            (3, 11),
+            # bool
+            (4, 3),
+        }:
+            raise ValueError(f"cannot convert dtype: {dtype.str} to BSON binary")
+        buf.append((type_kind << 8) | type_size)
+        buf.extend(vector.tobytes("C"))
+        return Binary(bytearray(buf), VECTOR_SUBTYPE)
+
+    def as_vector(self) -> npt.NDArray:
+        if self.subtype != VECTOR_SUBTYPE:
+            raise ValueError(f"cannot decode subtype {self.subtype} as a vector")
+        type_byte = self[0]
+        type_kind = REV_TYPE_KIND_MAP.get(type_byte >> 8, None)
+        if type_kind is None:
+            raise ValueError(f"cannot convert element byte: {type_byte}")
+        type_size = REV_TYPE_SIZE_MAP.get(type_byte & 15, None)
+        if type_size is None:
+            raise ValueError(f"cannot convert element byte: {type_byte}")
+        dtype_obj = np.dtype(f"{type_kind}{type_size}" if type_kind != "b" else f"b")
+        data_seg = self[1:]
+        return np.frombuffer(
+            bytearray(data_seg), dtype=dtype_obj, count=(len(data_seg) // type_size)
         )
 
     @property
