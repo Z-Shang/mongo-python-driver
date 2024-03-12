@@ -369,7 +369,7 @@ class Binary(bytes):
         )
 
     @classmethod
-    def from_vector(cls: Type[Binary], vector: npt.NDArray) -> Binary:
+    def from_np_array(cls: Type[Binary], vector: npt.NDArray) -> Binary:
         buf: List = []
         dtype = vector.dtype
         type_size = TYPE_SIZE_MAP.get(dtype.itemsize, None)
@@ -405,18 +405,18 @@ class Binary(bytes):
             (4, 3),
         }:
             raise ValueError(f"cannot convert dtype: {dtype.str} to BSON binary")
-        buf.append((type_kind << 8) | type_size)
+        buf.append((type_kind << 4) | type_size)
         buf.extend(vector.tobytes("C"))
         return Binary(bytearray(buf), VECTOR_SUBTYPE)
 
-    def as_vector(self) -> npt.NDArray:
+    def as_np_array(self) -> npt.NDArray:
         if self.subtype != VECTOR_SUBTYPE:
             raise ValueError(f"cannot decode subtype {self.subtype} as a vector")
         type_byte = self[0]
-        type_kind = REV_TYPE_KIND_MAP.get(type_byte >> 8, None)
+        type_kind = REV_TYPE_KIND_MAP.get(type_byte >> 4, None)
         if type_kind is None:
             raise ValueError(f"cannot convert element byte: {type_byte}")
-        type_size = REV_TYPE_SIZE_MAP.get(type_byte & 15, None)
+        type_size = REV_TYPE_SIZE_MAP.get(type_byte & 0b1111, None)
         if type_size is None:
             raise ValueError(f"cannot convert element byte: {type_byte}")
         dtype_obj = np.dtype(f"{type_kind}{type_size}" if type_kind != "b" else f"b")
@@ -453,3 +453,4 @@ class Binary(bytes):
 
     def __repr__(self) -> str:
         return f"Binary({bytes.__repr__(self)}, {self.__subtype})"
+
