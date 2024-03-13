@@ -19,6 +19,7 @@ import array
 import base64
 import copy
 import mmap
+import numpy as np
 import pickle
 import sys
 import uuid
@@ -346,6 +347,42 @@ class TestBinary(unittest.TestCase):
             self.assertEqual(b0, Binary(mm, 2))
         self.assertEqual(b0, Binary(array.array("B", b"123"), 2))
 
+    def test_binary_vector(self):
+        # all of the below is little-endian representation
+        types = {
+            # signed integers
+            np.int8: "03000102", # 0x13 for uint8
+            np.int16: "05000001000200", # 0x15 for uint16
+            np.int32: "07000000000100000002000000", # 0x17 for uint32
+            np.int64: "09000000000000000001000000000000000200000000000000", # 0x19 for uint64
+
+            # unsigned integers
+            np.uint8: "13000102", # 0x13 for uint8
+            np.uint16: "15000001000200", # 0x15 for uint16
+            np.uint32: "17000000000100000002000000", # 0x17 for uint32
+            np.uint64: "19000000000000000001000000000000000200000000000000", # 0x19 for uint64
+
+            # float
+            np.float16: "250000003C0040", # 0x25 for float16
+            np.float32: "27000000000000803F00000040", # 0x27 for float21
+            np.float64: "290000000000000000000000000000F03F0000000000000040", # 0x29 for float21
+
+            # bool
+            np.bool_: "43010001",
+        }
+
+        for type, valid_hex in types.items():
+            # create test vector
+            if type == np.bool_:
+                v = np.array(np.array([1, 0, 1]), dtype='bool')
+            else:
+                v = np.arange(3, dtype=type)
+
+            # encode as binary vector
+            b_v = Binary.from_np_array(v)
+
+            # assert correctness
+            self.assertEqual(b_v.hex().upper(), valid_hex)
 
 class TestUuidSpecExplicitCoding(unittest.TestCase):
     uuid: uuid.UUID
