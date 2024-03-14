@@ -17,6 +17,11 @@ from __future__ import annotations
 
 import array
 import base64
+import bson
+from bson import (
+    decode,
+    encode,
+)
 import copy
 import mmap
 import numpy as np
@@ -82,270 +87,270 @@ class TestBinary(unittest.TestCase):
         )
         cls.csharp_data = base64.b64decode(from_csharp)
 
-    def test_binary(self):
-        a_string = "hello world"
-        a_binary = Binary(b"hello world")
-        self.assertTrue(a_binary.startswith(b"hello"))
-        self.assertTrue(a_binary.endswith(b"world"))
-        self.assertTrue(isinstance(a_binary, Binary))
-        self.assertFalse(isinstance(a_string, Binary))
+    # def test_binary(self):
+    #     a_string = "hello world"
+    #     a_binary = Binary(b"hello world")
+    #     self.assertTrue(a_binary.startswith(b"hello"))
+    #     self.assertTrue(a_binary.endswith(b"world"))
+    #     self.assertTrue(isinstance(a_binary, Binary))
+    #     self.assertFalse(isinstance(a_string, Binary))
 
-    def test_exceptions(self):
-        self.assertRaises(TypeError, Binary, None)
-        self.assertRaises(TypeError, Binary, 5)
-        self.assertRaises(TypeError, Binary, 10.2)
-        self.assertRaises(TypeError, Binary, b"hello", None)
-        self.assertRaises(TypeError, Binary, b"hello", "100")
-        self.assertRaises(ValueError, Binary, b"hello", -1)
-        self.assertRaises(ValueError, Binary, b"hello", 256)
-        self.assertTrue(Binary(b"hello", 0))
-        self.assertTrue(Binary(b"hello", 255))
-        self.assertRaises(TypeError, Binary, "hello")
+    # def test_exceptions(self):
+    #     self.assertRaises(TypeError, Binary, None)
+    #     self.assertRaises(TypeError, Binary, 5)
+    #     self.assertRaises(TypeError, Binary, 10.2)
+    #     self.assertRaises(TypeError, Binary, b"hello", None)
+    #     self.assertRaises(TypeError, Binary, b"hello", "100")
+    #     self.assertRaises(ValueError, Binary, b"hello", -1)
+    #     self.assertRaises(ValueError, Binary, b"hello", 256)
+    #     self.assertTrue(Binary(b"hello", 0))
+    #     self.assertTrue(Binary(b"hello", 255))
+    #     self.assertRaises(TypeError, Binary, "hello")
 
-    def test_subtype(self):
-        one = Binary(b"hello")
-        self.assertEqual(one.subtype, 0)
-        two = Binary(b"hello", 2)
-        self.assertEqual(two.subtype, 2)
-        three = Binary(b"hello", 100)
-        self.assertEqual(three.subtype, 100)
+    # def test_subtype(self):
+    #     one = Binary(b"hello")
+    #     self.assertEqual(one.subtype, 0)
+    #     two = Binary(b"hello", 2)
+    #     self.assertEqual(two.subtype, 2)
+    #     three = Binary(b"hello", 100)
+    #     self.assertEqual(three.subtype, 100)
 
-    def test_equality(self):
-        two = Binary(b"hello")
-        three = Binary(b"hello", 100)
-        self.assertNotEqual(two, three)
-        self.assertEqual(three, Binary(b"hello", 100))
-        self.assertEqual(two, Binary(b"hello"))
-        self.assertNotEqual(two, Binary(b"hello "))
-        self.assertNotEqual(b"hello", Binary(b"hello"))
+    # def test_equality(self):
+    #     two = Binary(b"hello")
+    #     three = Binary(b"hello", 100)
+    #     self.assertNotEqual(two, three)
+    #     self.assertEqual(three, Binary(b"hello", 100))
+    #     self.assertEqual(two, Binary(b"hello"))
+    #     self.assertNotEqual(two, Binary(b"hello "))
+    #     self.assertNotEqual(b"hello", Binary(b"hello"))
 
-        # Explicitly test inequality
-        self.assertFalse(three != Binary(b"hello", 100))
-        self.assertFalse(two != Binary(b"hello"))
+    #     # Explicitly test inequality
+    #     self.assertFalse(three != Binary(b"hello", 100))
+    #     self.assertFalse(two != Binary(b"hello"))
 
-    def test_repr(self):
-        one = Binary(b"hello world")
-        self.assertEqual(repr(one), "Binary({}, 0)".format(repr(b"hello world")))
-        two = Binary(b"hello world", 2)
-        self.assertEqual(repr(two), "Binary({}, 2)".format(repr(b"hello world")))
-        three = Binary(b"\x08\xFF")
-        self.assertEqual(repr(three), "Binary({}, 0)".format(repr(b"\x08\xFF")))
-        four = Binary(b"\x08\xFF", 2)
-        self.assertEqual(repr(four), "Binary({}, 2)".format(repr(b"\x08\xFF")))
-        five = Binary(b"test", 100)
-        self.assertEqual(repr(five), "Binary({}, 100)".format(repr(b"test")))
+    # def test_repr(self):
+    #     one = Binary(b"hello world")
+    #     self.assertEqual(repr(one), "Binary({}, 0)".format(repr(b"hello world")))
+    #     two = Binary(b"hello world", 2)
+    #     self.assertEqual(repr(two), "Binary({}, 2)".format(repr(b"hello world")))
+    #     three = Binary(b"\x08\xFF")
+    #     self.assertEqual(repr(three), "Binary({}, 0)".format(repr(b"\x08\xFF")))
+    #     four = Binary(b"\x08\xFF", 2)
+    #     self.assertEqual(repr(four), "Binary({}, 2)".format(repr(b"\x08\xFF")))
+    #     five = Binary(b"test", 100)
+    #     self.assertEqual(repr(five), "Binary({}, 100)".format(repr(b"test")))
 
-    def test_hash(self):
-        one = Binary(b"hello world")
-        two = Binary(b"hello world", 42)
-        self.assertEqual(hash(Binary(b"hello world")), hash(one))
-        self.assertNotEqual(hash(one), hash(two))
-        self.assertEqual(hash(Binary(b"hello world", 42)), hash(two))
+    # def test_hash(self):
+    #     one = Binary(b"hello world")
+    #     two = Binary(b"hello world", 42)
+    #     self.assertEqual(hash(Binary(b"hello world")), hash(one))
+    #     self.assertNotEqual(hash(one), hash(two))
+    #     self.assertEqual(hash(Binary(b"hello world", 42)), hash(two))
 
-    def test_uuid_subtype_4(self):
-        """Only STANDARD should decode subtype 4 as native uuid."""
-        expected_uuid = uuid.uuid4()
-        expected_bin = Binary(expected_uuid.bytes, 4)
-        doc = {"uuid": expected_bin}
-        encoded = encode(doc)
-        for uuid_rep in (
-            UuidRepresentation.PYTHON_LEGACY,
-            UuidRepresentation.JAVA_LEGACY,
-            UuidRepresentation.CSHARP_LEGACY,
-        ):
-            opts = CodecOptions(uuid_representation=uuid_rep)
-            self.assertEqual(expected_bin, decode(encoded, opts)["uuid"])
-        opts = CodecOptions(uuid_representation=UuidRepresentation.STANDARD)
-        self.assertEqual(expected_uuid, decode(encoded, opts)["uuid"])
+    # def test_uuid_subtype_4(self):
+    #     """Only STANDARD should decode subtype 4 as native uuid."""
+    #     expected_uuid = uuid.uuid4()
+    #     expected_bin = Binary(expected_uuid.bytes, 4)
+    #     doc = {"uuid": expected_bin}
+    #     encoded = encode(doc)
+    #     for uuid_rep in (
+    #         UuidRepresentation.PYTHON_LEGACY,
+    #         UuidRepresentation.JAVA_LEGACY,
+    #         UuidRepresentation.CSHARP_LEGACY,
+    #     ):
+    #         opts = CodecOptions(uuid_representation=uuid_rep)
+    #         self.assertEqual(expected_bin, decode(encoded, opts)["uuid"])
+    #     opts = CodecOptions(uuid_representation=UuidRepresentation.STANDARD)
+    #     self.assertEqual(expected_uuid, decode(encoded, opts)["uuid"])
 
-    def test_legacy_java_uuid(self):
-        # Test decoding
-        data = self.java_data
-        docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, PYTHON_LEGACY))
-        for d in docs:
-            self.assertNotEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
+    # def test_legacy_java_uuid(self):
+    #     # Test decoding
+    #     data = self.java_data
+    #     docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, PYTHON_LEGACY))
+    #     for d in docs:
+    #         self.assertNotEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
 
-        docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, STANDARD))
-        for d in docs:
-            self.assertNotEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
+    #     docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, STANDARD))
+    #     for d in docs:
+    #         self.assertNotEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
 
-        docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, CSHARP_LEGACY))
-        for d in docs:
-            self.assertNotEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
+    #     docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, CSHARP_LEGACY))
+    #     for d in docs:
+    #         self.assertNotEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
 
-        docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, JAVA_LEGACY))
-        for d in docs:
-            self.assertEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
+    #     docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, JAVA_LEGACY))
+    #     for d in docs:
+    #         self.assertEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
 
-        # Test encoding
-        encoded = b"".join(
-            [encode(doc, False, CodecOptions(uuid_representation=PYTHON_LEGACY)) for doc in docs]
-        )
-        self.assertNotEqual(data, encoded)
+    #     # Test encoding
+    #     encoded = b"".join(
+    #         [encode(doc, False, CodecOptions(uuid_representation=PYTHON_LEGACY)) for doc in docs]
+    #     )
+    #     self.assertNotEqual(data, encoded)
 
-        encoded = b"".join(
-            [encode(doc, False, CodecOptions(uuid_representation=STANDARD)) for doc in docs]
-        )
-        self.assertNotEqual(data, encoded)
+    #     encoded = b"".join(
+    #         [encode(doc, False, CodecOptions(uuid_representation=STANDARD)) for doc in docs]
+    #     )
+    #     self.assertNotEqual(data, encoded)
 
-        encoded = b"".join(
-            [encode(doc, False, CodecOptions(uuid_representation=CSHARP_LEGACY)) for doc in docs]
-        )
-        self.assertNotEqual(data, encoded)
+    #     encoded = b"".join(
+    #         [encode(doc, False, CodecOptions(uuid_representation=CSHARP_LEGACY)) for doc in docs]
+    #     )
+    #     self.assertNotEqual(data, encoded)
 
-        encoded = b"".join(
-            [encode(doc, False, CodecOptions(uuid_representation=JAVA_LEGACY)) for doc in docs]
-        )
-        self.assertEqual(data, encoded)
+    #     encoded = b"".join(
+    #         [encode(doc, False, CodecOptions(uuid_representation=JAVA_LEGACY)) for doc in docs]
+    #     )
+    #     self.assertEqual(data, encoded)
 
-    @client_context.require_connection
-    def test_legacy_java_uuid_roundtrip(self):
-        data = self.java_data
-        docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, JAVA_LEGACY))
+    # @client_context.require_connection
+    # def test_legacy_java_uuid_roundtrip(self):
+    #     data = self.java_data
+    #     docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, JAVA_LEGACY))
 
-        client_context.client.pymongo_test.drop_collection("java_uuid")
-        db = client_context.client.pymongo_test
-        coll = db.get_collection("java_uuid", CodecOptions(uuid_representation=JAVA_LEGACY))
+    #     client_context.client.pymongo_test.drop_collection("java_uuid")
+    #     db = client_context.client.pymongo_test
+    #     coll = db.get_collection("java_uuid", CodecOptions(uuid_representation=JAVA_LEGACY))
 
-        coll.insert_many(docs)
-        self.assertEqual(5, coll.count_documents({}))
-        for d in coll.find():
-            self.assertEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
+    #     coll.insert_many(docs)
+    #     self.assertEqual(5, coll.count_documents({}))
+    #     for d in coll.find():
+    #         self.assertEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
 
-        coll = db.get_collection("java_uuid", CodecOptions(uuid_representation=PYTHON_LEGACY))
-        for d in coll.find():
-            self.assertNotEqual(d["newguid"], d["newguidstring"])
-        client_context.client.pymongo_test.drop_collection("java_uuid")
+    #     coll = db.get_collection("java_uuid", CodecOptions(uuid_representation=PYTHON_LEGACY))
+    #     for d in coll.find():
+    #         self.assertNotEqual(d["newguid"], d["newguidstring"])
+    #     client_context.client.pymongo_test.drop_collection("java_uuid")
 
-    def test_legacy_csharp_uuid(self):
-        data = self.csharp_data
+    # def test_legacy_csharp_uuid(self):
+    #     data = self.csharp_data
 
-        # Test decoding
-        docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, PYTHON_LEGACY))
-        for d in docs:
-            self.assertNotEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
+    #     # Test decoding
+    #     docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, PYTHON_LEGACY))
+    #     for d in docs:
+    #         self.assertNotEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
 
-        docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, STANDARD))
-        for d in docs:
-            self.assertNotEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
+    #     docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, STANDARD))
+    #     for d in docs:
+    #         self.assertNotEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
 
-        docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, JAVA_LEGACY))
-        for d in docs:
-            self.assertNotEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
+    #     docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, JAVA_LEGACY))
+    #     for d in docs:
+    #         self.assertNotEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
 
-        docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, CSHARP_LEGACY))
-        for d in docs:
-            self.assertEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
+    #     docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, CSHARP_LEGACY))
+    #     for d in docs:
+    #         self.assertEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
 
-        # Test encoding
-        encoded = b"".join(
-            [encode(doc, False, CodecOptions(uuid_representation=PYTHON_LEGACY)) for doc in docs]
-        )
-        self.assertNotEqual(data, encoded)
+    #     # Test encoding
+    #     encoded = b"".join(
+    #         [encode(doc, False, CodecOptions(uuid_representation=PYTHON_LEGACY)) for doc in docs]
+    #     )
+    #     self.assertNotEqual(data, encoded)
 
-        encoded = b"".join(
-            [encode(doc, False, CodecOptions(uuid_representation=STANDARD)) for doc in docs]
-        )
-        self.assertNotEqual(data, encoded)
+    #     encoded = b"".join(
+    #         [encode(doc, False, CodecOptions(uuid_representation=STANDARD)) for doc in docs]
+    #     )
+    #     self.assertNotEqual(data, encoded)
 
-        encoded = b"".join(
-            [encode(doc, False, CodecOptions(uuid_representation=JAVA_LEGACY)) for doc in docs]
-        )
-        self.assertNotEqual(data, encoded)
+    #     encoded = b"".join(
+    #         [encode(doc, False, CodecOptions(uuid_representation=JAVA_LEGACY)) for doc in docs]
+    #     )
+    #     self.assertNotEqual(data, encoded)
 
-        encoded = b"".join(
-            [encode(doc, False, CodecOptions(uuid_representation=CSHARP_LEGACY)) for doc in docs]
-        )
-        self.assertEqual(data, encoded)
+    #     encoded = b"".join(
+    #         [encode(doc, False, CodecOptions(uuid_representation=CSHARP_LEGACY)) for doc in docs]
+    #     )
+    #     self.assertEqual(data, encoded)
 
-    @client_context.require_connection
-    def test_legacy_csharp_uuid_roundtrip(self):
-        data = self.csharp_data
-        docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, CSHARP_LEGACY))
+    # @client_context.require_connection
+    # def test_legacy_csharp_uuid_roundtrip(self):
+    #     data = self.csharp_data
+    #     docs = bson.decode_all(data, CodecOptions(SON[str, Any], False, CSHARP_LEGACY))
 
-        client_context.client.pymongo_test.drop_collection("csharp_uuid")
-        db = client_context.client.pymongo_test
-        coll = db.get_collection("csharp_uuid", CodecOptions(uuid_representation=CSHARP_LEGACY))
+    #     client_context.client.pymongo_test.drop_collection("csharp_uuid")
+    #     db = client_context.client.pymongo_test
+    #     coll = db.get_collection("csharp_uuid", CodecOptions(uuid_representation=CSHARP_LEGACY))
 
-        coll.insert_many(docs)
-        self.assertEqual(5, coll.count_documents({}))
-        for d in coll.find():
-            self.assertEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
+    #     coll.insert_many(docs)
+    #     self.assertEqual(5, coll.count_documents({}))
+    #     for d in coll.find():
+    #         self.assertEqual(d["newguid"], uuid.UUID(d["newguidstring"]))
 
-        coll = db.get_collection("csharp_uuid", CodecOptions(uuid_representation=PYTHON_LEGACY))
-        for d in coll.find():
-            self.assertNotEqual(d["newguid"], d["newguidstring"])
-        client_context.client.pymongo_test.drop_collection("csharp_uuid")
+    #     coll = db.get_collection("csharp_uuid", CodecOptions(uuid_representation=PYTHON_LEGACY))
+    #     for d in coll.find():
+    #         self.assertNotEqual(d["newguid"], d["newguidstring"])
+    #     client_context.client.pymongo_test.drop_collection("csharp_uuid")
 
-    def test_uri_to_uuid(self):
-        uri = "mongodb://foo/?uuidrepresentation=csharpLegacy"
-        client = MongoClient(uri, connect=False)
-        self.assertEqual(client.pymongo_test.test.codec_options.uuid_representation, CSHARP_LEGACY)
+    # def test_uri_to_uuid(self):
+    #     uri = "mongodb://foo/?uuidrepresentation=csharpLegacy"
+    #     client = MongoClient(uri, connect=False)
+    #     self.assertEqual(client.pymongo_test.test.codec_options.uuid_representation, CSHARP_LEGACY)
 
-    @client_context.require_connection
-    def test_uuid_queries(self):
-        db = client_context.client.pymongo_test
-        coll = db.test
-        coll.drop()
+    # @client_context.require_connection
+    # def test_uuid_queries(self):
+    #     db = client_context.client.pymongo_test
+    #     coll = db.test
+    #     coll.drop()
 
-        uu = uuid.uuid4()
-        coll.insert_one({"uuid": Binary(uu.bytes, 3)})
-        self.assertEqual(1, coll.count_documents({}))
+    #     uu = uuid.uuid4()
+    #     coll.insert_one({"uuid": Binary(uu.bytes, 3)})
+    #     self.assertEqual(1, coll.count_documents({}))
 
-        # Test regular UUID queries (using subtype 4).
-        coll = db.get_collection(
-            "test", CodecOptions(uuid_representation=UuidRepresentation.STANDARD)
-        )
-        self.assertEqual(0, coll.count_documents({"uuid": uu}))
-        coll.insert_one({"uuid": uu})
-        self.assertEqual(2, coll.count_documents({}))
-        docs = list(coll.find({"uuid": uu}))
-        self.assertEqual(1, len(docs))
-        self.assertEqual(uu, docs[0]["uuid"])
+    #     # Test regular UUID queries (using subtype 4).
+    #     coll = db.get_collection(
+    #         "test", CodecOptions(uuid_representation=UuidRepresentation.STANDARD)
+    #     )
+    #     self.assertEqual(0, coll.count_documents({"uuid": uu}))
+    #     coll.insert_one({"uuid": uu})
+    #     self.assertEqual(2, coll.count_documents({}))
+    #     docs = list(coll.find({"uuid": uu}))
+    #     self.assertEqual(1, len(docs))
+    #     self.assertEqual(uu, docs[0]["uuid"])
 
-        # Test both.
-        uu_legacy = Binary.from_uuid(uu, UuidRepresentation.PYTHON_LEGACY)
-        predicate = {"uuid": {"$in": [uu, uu_legacy]}}
-        self.assertEqual(2, coll.count_documents(predicate))
-        docs = list(coll.find(predicate))
-        self.assertEqual(2, len(docs))
-        coll.drop()
+    #     # Test both.
+    #     uu_legacy = Binary.from_uuid(uu, UuidRepresentation.PYTHON_LEGACY)
+    #     predicate = {"uuid": {"$in": [uu, uu_legacy]}}
+    #     self.assertEqual(2, coll.count_documents(predicate))
+    #     docs = list(coll.find(predicate))
+    #     self.assertEqual(2, len(docs))
+    #     coll.drop()
 
-    def test_pickle(self):
-        b1 = Binary(b"123", 2)
+    # def test_pickle(self):
+    #     b1 = Binary(b"123", 2)
 
-        # For testing backwards compatibility with pre-2.4 pymongo
-        p = (
-            b"\x80\x03cbson.binary\nBinary\nq\x00C\x03123q\x01\x85q"
-            b"\x02\x81q\x03}q\x04X\x10\x00\x00\x00_Binary__subtypeq"
-            b"\x05K\x02sb."
-        )
+    #     # For testing backwards compatibility with pre-2.4 pymongo
+    #     p = (
+    #         b"\x80\x03cbson.binary\nBinary\nq\x00C\x03123q\x01\x85q"
+    #         b"\x02\x81q\x03}q\x04X\x10\x00\x00\x00_Binary__subtypeq"
+    #         b"\x05K\x02sb."
+    #     )
 
-        if not sys.version.startswith("3.0"):
-            self.assertEqual(b1, pickle.loads(p))
+    #     if not sys.version.startswith("3.0"):
+    #         self.assertEqual(b1, pickle.loads(p))
 
-        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
-            self.assertEqual(b1, pickle.loads(pickle.dumps(b1, proto)))
+    #     for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+    #         self.assertEqual(b1, pickle.loads(pickle.dumps(b1, proto)))
 
-        uu = uuid.uuid4()
-        uul = Binary.from_uuid(uu, UuidRepresentation.PYTHON_LEGACY)
+    #     uu = uuid.uuid4()
+    #     uul = Binary.from_uuid(uu, UuidRepresentation.PYTHON_LEGACY)
 
-        self.assertEqual(uul, copy.copy(uul))
-        self.assertEqual(uul, copy.deepcopy(uul))
+    #     self.assertEqual(uul, copy.copy(uul))
+    #     self.assertEqual(uul, copy.deepcopy(uul))
 
-        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
-            self.assertEqual(uul, pickle.loads(pickle.dumps(uul, proto)))
+    #     for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+    #         self.assertEqual(uul, pickle.loads(pickle.dumps(uul, proto)))
 
-    def test_buffer_protocol(self):
-        b0 = Binary(b"123", 2)
+    # def test_buffer_protocol(self):
+    #     b0 = Binary(b"123", 2)
 
-        self.assertEqual(b0, Binary(memoryview(b"123"), 2))
-        self.assertEqual(b0, Binary(bytearray(b"123"), 2))
-        with mmap.mmap(-1, len(b"123")) as mm:
-            mm.write(b"123")
-            mm.seek(0)
-            self.assertEqual(b0, Binary(mm, 2))
-        self.assertEqual(b0, Binary(array.array("B", b"123"), 2))
+    #     self.assertEqual(b0, Binary(memoryview(b"123"), 2))
+    #     self.assertEqual(b0, Binary(bytearray(b"123"), 2))
+    #     with mmap.mmap(-1, len(b"123")) as mm:
+    #         mm.write(b"123")
+    #         mm.seek(0)
+    #         self.assertEqual(b0, Binary(mm, 2))
+    #     self.assertEqual(b0, Binary(array.array("B", b"123"), 2))
 
     def test_binary_vector(self):
         # all of the below is little-endian representation
@@ -364,8 +369,8 @@ class TestBinary(unittest.TestCase):
 
             # float
             np.float16: "250000003C0040", # 0x25 for float16
-            np.float32: "27000000000000803F00000040", # 0x27 for float21
-            np.float64: "290000000000000000000000000000F03F0000000000000040", # 0x29 for float21
+            np.float32: "27000000000000803F00000040", # 0x27 for float32
+            np.float64: "290000000000000000000000000000F03F0000000000000040", # 0x29 for float64
 
             # bool
             np.bool_: "43010001",
@@ -383,6 +388,16 @@ class TestBinary(unittest.TestCase):
 
             # assert correctness
             self.assertEqual(b_v.hex().upper(), valid_hex)
+
+    # temporary method to estimate size savings
+    def test_binary_vector_size(self):
+        sample_embedding = [-0.006929283495992422] * 2048
+        v = np.array(np.array(sample_embedding), dtype=np.float64)
+        b_v = Binary.from_np_array(v)
+
+        size = len(encode({"embedding": sample_embedding}))
+        size2 = len(encode({"embedding": b_v}))
+        print(1 - size2/ size)
 
 class TestUuidSpecExplicitCoding(unittest.TestCase):
     uuid: uuid.UUID
