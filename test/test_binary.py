@@ -356,10 +356,10 @@ class TestBinary(unittest.TestCase):
         # all of the below is little-endian representation
         types = {
             # signed integers
-            np.int8: "03000102", # 0x13 for uint8
-            np.int16: "05000001000200", # 0x15 for uint16
-            np.int32: "07000000000100000002000000", # 0x17 for uint32
-            np.int64: "09000000000000000001000000000000000200000000000000", # 0x19 for uint64
+            np.int8: "03000102", # 0x13 for int8
+            np.int16: "05000001000200", # 0x15 for int16
+            np.int32: "07000000000100000002000000", # 0x17 for int32
+            np.int64: "09000000000000000001000000000000000200000000000000", # 0x19 for int64
 
             # unsigned integers
             np.uint8: "13000102", # 0x13 for uint8
